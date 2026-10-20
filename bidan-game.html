@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Midwife Hero: Petualangan Bidan Remaja</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            font-family: 'Quicksand', sans-serif;
+        }
+        h1, h2, h3, .font-title {
+            font-family: 'Fredoka', cursive;
+        }
+        body {
+            background-color: #fce7f3;
+            color: #4a5568;
+            overflow: hidden;
+            margin: 0;
+        }
+        #game-canvas {
+            background-color: #fff1f2;
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Pastel Glassmorphism UI */
+        .pastel-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border: 3px solid #fbcfe8;
+            box-shadow: 0 10px 25px -5px rgba(244, 114, 182, 0.25);
+        }
+        .pastel-btn {
+            background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+            border: 2px solid #fbcfe8;
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3);
+            transition: all 0.15s ease;
+        }
+        .pastel-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Mobile Joystick Styles */
+        .joystick-base {
+            width: 120px;
+            height: 120px;
+            background: rgba(251, 207, 232, 0.5);
+            border: 3px solid #f472b6;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            touch-action: none;
+            z-index: 20;
+        }
+        .joystick-thumb {
+            width: 50px;
+            height: 50px;
+            background: #ec4899;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            position: absolute;
+            top: 32px;
+            left: 32px;
+            pointer-events: none;
+            box-shadow: 0 4px 10px rgba(236, 72, 153, 0.5);
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 6px 15px rgba(236, 72, 153, 0.35);
+            touch-action: manipulation;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fce7f3;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #f472b6;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
+
+    <!-- GAME CANVAS -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD OVERLAY (Top Bars & Quest info) -->
+    <div class="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none z-10">
+        <!-- Hero Status Panel -->
+        <div class="pastel-panel p-2.5 sm:p-3 rounded-2xl flex items-center space-x-3 w-60 sm:w-72">
+            <div class="w-12 h-12 rounded-2xl bg-pink-300 border-2 border-white flex items-center justify-center text-2xl shadow-inner">
+                👩‍⚕️
+            </div>
+            <div class="flex-1">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-pink-600 font-title">BIDAN HERO</span>
+                    <span id="score-text" class="text-xs font-bold text-purple-600">Skor: 0</span>
+                </div>
+                <!-- Quest HP / Satisfaction Bar -->
+                <div class="w-full bg-pink-100 h-3 rounded-full overflow-hidden border border-pink-200">
+                    <div id="patient-hp-bar" class="bg-gradient-to-r from-pink-400 to-rose-400 h-full w-full transition-all duration-300"></div>
+                </div>
+                <div class="text-[10px] text-pink-400 font-semibold mt-0.5 text-right" id="hp-label">Kepuasan Pasien</div>
+            </div>
+        </div>
+
+        <!-- Level Badge -->
+        <div class="pastel-panel px-4 py-2 rounded-2xl text-center">
+            <div class="text-[10px] font-bold text-pink-400 uppercase tracking-widest">KLINIK LEVEL</div>
+            <div id="level-badge" class="text-xl font-bold text-pink-600 font-title">Level 1</div>
+        </div>
+    </div>
+
+    <!-- QUEST GOAL BANNER -->
+    <div class="absolute top-20 left-1/2 -translate-x-1/2 pastel-panel px-5 py-2 rounded-full z-10 pointer-events-none max-w-sm text-center shadow-md border-pink-300">
+        <span class="text-xs font-bold text-purple-700" id="quest-text">🎯 Misi: Ambil Warm Pad & Air Putih untuk Pasien Ayu!</span>
+    </div>
+
+    <!-- ON-SCREEN CONTROLS (MOBILE TOUCH) -->
+    <div id="mobile-controls" class="z-20">
+        <!-- Left Joystick -->
+        <div id="joystick-base" class="joystick-base">
+            <div id="joystick-thumb" class="joystick-thumb"></div>
+        </div>
+
+        <!-- Right Action Buttons -->
+        <div class="absolute bottom-6 right-6 flex flex-col items-end space-y-3 pointer-events-auto">
+            <!-- Interact / Ambil / Obati Button -->
+            <button id="btn-interact" class="action-btn pastel-btn border-2 border-white">
+                🤝
+            </button>
+            <!-- Special Skill / Serangan Edukasi -->
+            <button id="btn-skill" class="action-btn bg-gradient-to-r from-purple-400 to-pink-400 border-2 border-white text-lg relative">
+                ✨
+            </button>
+        </div>
+    </div>
+
+    <!-- DESKTOP KEYBOARD HELPER -->
+    <div class="hidden sm:flex absolute bottom-3 left-1/2 -translate-x-1/2 pastel-panel px-4 py-1.5 rounded-full text-xs font-bold text-pink-700 space-x-4 z-10 pointer-events-none">
+        <span><kbd class="bg-pink-100 px-2 py-0.5 rounded text-pink-600">WASD / Panah</kbd> Jalan</span>
+        <span><kbd class="bg-pink-100 px-2 py-0.5 rounded text-pink-600">E / Spasi</kbd> Interaksi / Ambil Item</span>
+        <span><kbd class="bg-pink-100 px-2 py-0.5 rounded text-pink-600">F</kbd> Serangan Fakta</span>
+    </div>
+
+    <!-- START SCREEN MODAL -->
+    <div id="start-modal" class="fixed inset-0 bg-pink-900/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="pastel-panel p-6 sm:p-8 rounded-3xl max-w-md w-full text-center border-4 border-pink-300 shadow-2xl">
+            <div class="text-6xl mb-2 animate-bounce">👩‍⚕️💖</div>
+            <h1 class="text-3xl font-bold text-pink-600 mb-1 font-title">MIDWIFE HERO</h1>
+            <p class="text-xs text-purple-600 font-bold tracking-wider uppercase mb-4">Petualangan Edukasi Kebidanan Remaja</p>
+            
+            <p class="text-gray-600 text-sm mb-6 leading-relaxed">
+                Jadilah **Bidan Cilik Hero**! Bantu pasien-pasien remaja memahami **siklus menstruasi, kebersihan organ kewanitaan, fakta kehamilan, hingga mengalahkan Mitos & Hoax**! 🌸
+            </p>
+
+            <div class="bg-pink-50 p-4 rounded-2xl text-left text-xs text-pink-700 space-y-2 mb-6 border border-pink-200">
+                <div class="font-bold text-pink-800 border-b border-pink-200 pb-1">🌷 Cara Bermain:</div>
+                <div>1. **Gerakkan karakter** mendekati pasien atau rak item medis.</div>
+                <div>2. **Tekan tombol Handshake/Spasi** untuk mengambil item & merawat pasien.</div>
+                <div>3. **Hancurkan Monster Mitos** dengan Serangan Fakta Kebidanan!</div>
+            </div>
+
+            <button id="btn-start" class="w-full py-3.5 pastel-btn text-white font-title text-lg rounded-2xl shadow-lg transition-transform active:scale-95">
+                MULAI KLINIK 🚀
+            </button>
+        </div>
+    </div>
+
+    <!-- DIALOG & EDUKASI MODAL -->
+    <div id="dialog-modal" class="fixed inset-0 bg-pink-950/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-4 hidden">
+        <div class="pastel-panel p-5 sm:p-6 rounded-3xl max-w-lg w-full border-4 border-pink-300 shadow-2xl relative">
+            <div class="flex items-center space-x-3 mb-3">
+                <div id="dialog-avatar" class="text-4xl bg-pink-100 p-2.5 rounded-2xl border-2 border-pink-300">👩‍⚕️</div>
+                <div>
+                    <h3 id="dialog-speaker" class="text-base font-bold text-pink-600 font-title">Bidan Senior</h3>
+                    <p id="dialog-role" class="text-xs font-semibold text-purple-500">Pembimbing Edukasi</p>
+                </div>
+            </div>
+
+            <div id="dialog-text" class="bg-pink-50/80 p-4 rounded-2xl text-sm text-gray-700 leading-relaxed border border-pink-200 mb-4 max-h-52 overflow-y-auto">
+                Teks dialog penjelasan edukasi medis kebidanan...
+            </div>
+
+            <button id="btn-dialog-next" class="w-full py-3 pastel-btn text-white font-title text-base rounded-xl shadow-md transition-transform active:scale-95">
+                LANJUT / PAHAM ✨
+            </button>
+        </div>
+    </div>
+
+    <!-- VICTORY / SERTIFIKAT MODAL -->
+    <div id="certificate-modal" class="fixed inset-0 bg-pink-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 hidden">
+        <div class="pastel-panel p-6 sm:p-8 rounded-3xl max-w-lg w-full text-center border-4 border-amber-300 shadow-2xl relative">
+            <div class="text-5xl mb-2">🎀📜🏆</div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-pink-600 font-title mb-1">SERTIFIKAT KELULUSAN</h2>
+            <p class="text-xs font-bold text-purple-500 uppercase tracking-widest mb-4">Bidan Remaja Hebat & Cerdas</p>
+            
+            <div class="bg-amber-50 p-5 rounded-2xl border-2 border-dashed border-amber-300 text-left text-xs sm:text-sm text-gray-700 space-y-2 mb-6">
+                <p class="text-center font-bold text-amber-800 text-base mb-2">Diberikan Kepada: Hero Cewek Indonesia</p>
+                <p>Selamat! Kamu telah menyelesaikan 5 Level Kampanye Kebidanan:</p>
+                <ul class="list-disc pl-5 space-y-1 text-xs text-pink-700 font-semibold">
+                    <li>Memahami Siklus Menstruasi & Manajemen Nyeri Haid.</li>
+                    <li>Menjaga Kebersihan Organ Kewanitaan & Perubahan Pubertas.</li>
+                    <li>Menumpas Mitos & Hoax Kesehatan Reproduksi.</li>
+                    <li>Edukasi Nutrisi Kehamilan & Bahaya Kehamilan Remaja.</li>
+                    <li>Peran Bidan dalam Persalinan Aman & Perawatan Masa Nifas.</li>
+                </ul>
+            </div>
+
+            <button id="btn-restart-game" class="w-full py-3.5 pastel-btn text-white font-title text-base rounded-2xl shadow-lg transition-transform active:scale-95">
+                MAIN LAGI DARI AWAL 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GAME ENGINE -->
+    <script>
+        // --- WEB AUDIO SYNTHESIZER (SOUND FX) ---
+        class SoundFX {
+            constructor() { this.ctx = null; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            playPickup() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            }
+            playHeal() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, this.ctx.currentTime + 0.2); // G5
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.35);
+            }
+            playAttack() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+            }
+        }
+        const sfx = new SoundFX();
+
+        // --- LEVEL & KONTEN EDUKASI KEBIDANAN ---
+        const LEVEL_DATA = [
+            {
+                level: 1,
+                name: "Siklus Menstruasi & Kebersihan Diri",
+                quest: "Ambil Warm Pad ♨️ & Air Putih 💧 untuk meredakan nyeri haid Ayu!",
+                patientName: "Ayu (14 Tahun)",
+                patientIcon: "👧",
+                neededItems: ["Warm Pad", "Air Putih"],
+                dialogBefore: "Halo Bidan Cilik! Pasien Ayu datang meringis kesakitan karena nyeri haid (dismenore). Banyak yang bilang haid itu darah kotor dan dilarang keramas, padahal itu MITOS! Yuk bantu meredakan nyerinya dengan kompres hangat dan minum air putih!",
+                dialogAfter: "<b>Penjelasan Edukasi Kebidanan (Menstrual Hygiene):</b><br>1. Nyeri haid disebabkan oleh kontraksi otot rahim untuk meluruhkan lapisan dinding rahim.<br>2. <b>Kompres Air Hangat</b> & minum air putih hangat merelaksasi otot rahim.<br>3. Mitos dilarang keramas saat haid itu SALAH! Saat haid justru kita harus rajin mandi & ganti pembalut tiap 3-4 jam sekali agar tidak timbul kuman/bakteri."
+            },
+            {
+                level: 2,
+                name: "Pubertas & Perubahan Organ Kewanitaan",
+                quest: "Ambil Sabun Katun 🧼 & Kit Edukasi Basuh 🚿 untuk Rina!",
+                patientName: "Rina (13 Tahun)",
+                patientIcon: "👩‍🦰",
+                neededItems: ["Sabun Katun", "Kit Basuh"],
+                dialogBefore: "Rina bingung karena tubuhnya mulai berubah saat pubertas dan sering keputihan. Yuk edukasi Rina tentang hormon (estrogen) dan cara membasuh organ kewanitaan yang benar!",
+                dialogAfter: "<b>Penjelasan Edukasi Kebidanan (Pubertas & Hygiene):</b><br>1. Pubertas memicu produksi hormon Estrogen & Progesteron yang membesarkan payudara dan memicu menstruasi.<br>2. Cara membasuh organ intim perempuan yang BENAR adalah dari **DEPAN ke BELAKANG** (Vagina ke Anus) agar bakteri anus tidak masuk ke saluran kemih!<br>3. Pakai celana dalam berbahan katun yang menyerap keringat."
+            },
+            {
+                level: 3,
+                name: "Menumpas Monster Mitos & Hoax",
+                quest: "Gunakan Serangan Fakta ✨ untuk menghancurkan Monster Mitos Makanan!",
+                patientName: "Monster Mitos Nanas & Es",
+                patientIcon: "👹",
+                isBossLevel: true,
+                bossHp: 100,
+                dialogBefore: "Waspada! Monster Mitos menyebarkan hoax kalau 'makan nanas bikin keguguran' dan 'minum es bikin darah haid membeku'. Serang monster itu dengan tombol Fakta Kebidanan (Sparkle ✨)!",
+                dialogAfter: "<b>Penjelasan Edukasi Kebidanan (Fakta vs Mitos):</b><br>1. Nanas segar aman dikonsumsi dan kaya Vitamin C. Nanas TIDAK menyebabkan keguguran jika dimakan dalam porsi wajar.<br>2. Minum es TIDAK membekukan darah haid, karena saluran pencernaan dan rahim berada di jalur yang berbeda!<br>3. Selalu percaya pada fakta medis kebidanan, bukan mitos turun-temurun."
+            },
+            {
+                level: 4,
+                name: "Nutrisi Kehamilan & Bahaya Hamil Remaja",
+                quest: "Ambil Vitamin Fe 💊 & Asam Folat 🥑 untuk Ibu Maya!",
+                patientName: "Ibu Maya (Ibu Hamil)",
+                patientIcon: "🤰",
+                neededItems: ["Vitamin Fe", "Asam Folat"],
+                dialogBefore: "Ibu Maya sedang hamil dan membutuhkan gizi seimbang. Di saat yang sama, kita harus paham kenapa hamil di usia remaja sangat berisiko bagi organ reproduksi yang belum matang.",
+                dialogAfter: "<b>Penjelasan Edukasi Kebidanan (Antenatal Care):</b><br>1. Ibu hamil butuh **Asam Folat** (cegah cacat janin) dan **Zat Besi/Fe** (cegah anemia/kurang darah).<br>2. **Kehamilan Usia Remaja (di bawah 20 tahun)** sangat berisiko karena tulang panggul belum tumbuh sempurna, memicu perdarahan, panggul sempit, dan risiko kematian ibu."
+            },
+            {
+                level: 5,
+                name: "Persalinan Aman & Masa Nifas (Bidan Hero)",
+                quest: "Bantu Bidan menyiapkan Kit Persalinan 🧰 & Baju Bayi 👶!",
+                patientName: "Ibu & Bayi Baru Lahir",
+                patientIcon: "🤱",
+                neededItems: ["Kit Persalinan", "Baju Bayi"],
+                dialogBefore: "Selamat datang di ruang persalinan! Bidan adalah sahabat utama wanita yang membantu proses melahirkan secara aman, higienis, serta mengarahkan Inisiasi Menyusu Dini (IMD).",
+                dialogAfter: "<b>Penjelasan Edukasi Kebidanan (Postnatal & IMD):</b><br>1. **Bidan** memastikan persalinan steril dan memantau kesehatan ibu & bayi.<br>2. **Inisiasi Menyusu Dini (IMD)** adalah meletakkan bayi di dada ibu segera setelah lahir agar bayi mendapatkan ASI pertama (Kolostrum) yang kaya antibodi.<br>3. Perawatan masa nifas memastikan ibu sehat dan terhindar dari depresi pasca melahirkan."
+            }
+        ];
+
+        // --- CANVAS & SETUP ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- GAME STATE ---
+        let gameState = 'START'; // START, PLAYING, DIALOG, VICTORY
+        let currentLevelIndex = 0;
+        let score = 0;
+
+        // --- INPUT STATE ---
+        const keys = {};
+        let touchDir = { x: 0, y: 0 };
+        let isInteractPressed = false;
+        let isSkillPressed = false;
+
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'KeyE' || e.code === 'Space') interactAction();
+            if (e.code === 'KeyF') skillAction();
+        });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        // Touch Joystick Controls
+        const joystickBase = document.getElementById('joystick-base');
+        const joystickThumb = document.getElementById('joystick-thumb');
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+
+        function handleTouchStart(e) {
+            for (let touch of e.changedTouches) {
+                const rect = joystickBase.getBoundingClientRect();
+                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                    joystickActive = true;
+                    joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                    updateJoystick(touch);
+                }
+            }
+        }
+        function handleTouchMove(e) {
+            if (!joystickActive) return;
+            for (let touch of e.touches) { updateJoystick(touch); }
+        }
+        function handleTouchEnd(e) {
+            joystickActive = false;
+            touchDir = { x: 0, y: 0 };
+            joystickThumb.style.transform = `translate(0px, 0px)`;
+        }
+        function updateJoystick(touch) {
+            const dx = touch.clientX - joystickCenter.x;
+            const dy = touch.clientY - joystickCenter.y;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = 35;
+            const angle = Math.atan2(dy, dx);
+            const moveDist = Math.min(dist, maxDist);
+
+            touchDir.x = Math.cos(angle) * (moveDist / maxDist);
+            touchDir.y = Math.sin(angle) * (moveDist / maxDist);
+
+            joystickThumb.style.transform = `translate(${Math.cos(angle) * moveDist}px, ${Math.sin(angle) * moveDist}px)`;
+        }
+
+        window.addEventListener('touchstart', handleTouchStart);
+        window.addEventListener('touchmove', handleTouchMove);
+        window.addEventListener('touchend', handleTouchEnd);
+
+        document.getElementById('btn-interact').addEventListener('touchstart', (e) => { e.preventDefault(); interactAction(); });
+        document.getElementById('btn-skill').addEventListener('touchstart', (e) => { e.preventDefault(); skillAction(); });
+
+        // --- GAME ENTITIES & MAP ---
+        const map = { width: 1200, height: 900 };
+
+        class Player {
+            constructor() {
+                this.x = 200;
+                this.y = 450;
+                this.radius = 22;
+                this.speed = 4.2;
+                this.inventory = [];
+            }
+            update() {
+                let vx = 0; let vy = 0;
+                if (keys['KeyW'] || keys['ArrowUp']) vy -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) vy += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) vx -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) vx += 1;
+
+                if (touchDir.x !== 0 || touchDir.y !== 0) {
+                    vx = touchDir.x; vy = touchDir.y;
+                } else {
+                    const len = Math.hypot(vx, vy);
+                    if (len > 0) { vx /= len; vy /= len; }
+                }
+
+                this.x += vx * this.speed;
+                this.y += vy * this.speed;
+
+                // Clamp Boundaries
+                this.x = Math.max(this.radius + 50, Math.min(map.width - this.radius - 50, this.x));
+                this.y = Math.max(this.radius + 50, Math.min(map.height - this.radius - 50, this.y));
+            }
+            draw(camX, camY) {
+                const sx = this.x - camX;
+                const sy = this.y - camY;
+
+                // Player Shadow
+                ctx.beginPath();
+                ctx.ellipse(sx, sy + 18, 16, 6, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.12)';
+                ctx.fill();
+
+                // Player Body (Pastel Pink Avatar)
+                ctx.beginPath();
+                ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f472b6';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Player Face / Emoji
+                ctx.font = '20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👩‍⚕️', sx, sy);
+
+                // Inventory Floating Badges
+                if (this.inventory.length > 0) {
+                    ctx.font = '12px sans-serif';
+                    ctx.fillStyle = '#831843';
+                    ctx.fillText(`🎒 ${this.inventory.join(', ')}`, sx, sy - 32);
+                }
+            }
+        }
+
+        class ItemStation {
+            constructor(x, y, name, icon) {
+                this.x = x; this.y = y;
+                this.name = name; this.icon = icon;
+                this.radius = 28;
+            }
+            draw(camX, camY) {
+                const sx = this.x - camX; const sy = this.y - camY;
+
+                ctx.beginPath();
+                ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fbcfe8';
+                ctx.fill();
+                ctx.strokeStyle = '#f472b6';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.font = '24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.icon, sx, sy);
+
+                // Label
+                ctx.font = 'bold 11px Quicksand';
+                ctx.fillStyle = '#9d174d';
+                ctx.fillText(this.name, sx, sy + 38);
+            }
+        }
+
+        class PatientNPC {
+            constructor(x, y, levelData) {
+                this.x = x; this.y = y;
+                this.data = levelData;
+                this.radius = 35;
+                this.hp = levelData.isBossLevel ? levelData.bossHp : 0;
+            }
+            draw(camX, camY) {
+                const sx = this.x - camX; const sy = this.y - camY;
+
+                ctx.beginPath();
+                ctx.arc(sx, sy, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.data.isBossLevel ? '#fda4af' : '#e0e7ff';
+                ctx.fill();
+                ctx.strokeStyle = this.data.isBossLevel ? '#e11d48' : '#6366f1';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.font = '32px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.data.patientIcon, sx, sy);
+
+                // Name
+                ctx.font = 'bold 13px Quicksand';
+                ctx.fillStyle = '#4338ca';
+                ctx.fillText(this.data.patientName, sx, sy - 45);
+
+                // Boss HP Bar
+                if (this.data.isBossLevel) {
+                    const barW = 80;
+                    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                    ctx.fillRect(sx - barW / 2, sy - 60, barW, 8);
+                    ctx.fillStyle = '#e11d48';
+                    ctx.fillRect(sx - barW / 2, sy - 60, barW * (this.hp / 100), 8);
+                }
+            }
+        }
+
+        class AttackParticle {
+            constructor(x, y, targetX, targetY) {
+                this.x = x; this.y = y;
+                this.angle = Math.atan2(targetY - y, targetX - x);
+                this.speed = 8;
+                this.life = 40;
+            }
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                this.life--;
+            }
+            draw(camX, camY) {
+                ctx.font = '18px sans-serif';
+                ctx.fillText('✨', this.x - camX, this.y - camY);
+            }
+        }
+
+        // --- INSTANCES ---
+        let player = new Player();
+        let patient = null;
+        let itemStations = [];
+        let particles = [];
+
+        function loadLevel(index) {
+            const data = LEVEL_DATA[index];
+            player.x = 200; player.y = 450;
+            player.inventory = [];
+            particles = [];
+
+            patient = new PatientNPC(950, 450, data);
+            itemStations = [];
+
+            if (!data.isBossLevel) {
+                // Spawn Item Stations
+                const icons = ["♨️", "💧", "🧼", "🚿", "💊", "🥑", "🧰", "👶"];
+                data.neededItems.forEach((itemName, i) => {
+                    itemStations.push(new ItemStation(500, 250 + (i * 300), itemName, icons[i % icons.length]));
+                });
+            }
+
+            // Update HUD UI
+            document.getElementById('level-badge').innerText = `Level ${data.level}`;
+            document.getElementById('quest-text').innerText = `🎯 Misi: ${data.quest}`;
+            document.getElementById('hp-label').innerText = data.isBossLevel ? "Darah Boss Mitos" : "Kepuasan Pasien";
+            updatePatientHpUI(100);
+
+            // Show Dialog Before Level
+            showDialog("Bidan Senior", "Pembimbing Kebidanan", "👩‍⚕️", data.dialogBefore);
+        }
+
+        function updatePatientHpUI(percent) {
+            document.getElementById('patient-hp-bar').style.width = `${Math.max(0, percent)}%`;
+        }
+
+        // --- ACTIONS ---
+        function interactAction() {
+            if (gameState !== 'PLAYING') return;
+            const currentLevel = LEVEL_DATA[currentLevelIndex];
+
+            // Check Item Stations Pickup
+            itemStations.forEach(station => {
+                const dist = Math.hypot(station.x - player.x, station.y - player.y);
+                if (dist < station.radius + player.radius + 20) {
+                    if (!player.inventory.includes(station.name)) {
+                        player.inventory.push(station.name);
+                        sfx.playPickup();
+                    }
+                }
+            });
+
+            // Check Patient Delivery
+            if (patient && !currentLevel.isBossLevel) {
+                const distPatient = Math.hypot(patient.x - player.x, patient.y - player.y);
+                if (distPatient < patient.radius + player.radius + 30) {
+                    // Check if player has all needed items
+                    const hasAll = currentLevel.neededItems.every(item => player.inventory.includes(item));
+                    if (hasAll) {
+                        sfx.playHeal();
+                        score += 200;
+                        document.getElementById('score-text').innerText = `Skor: ${score}`;
+                        showDialog("Bidan Senior", "Edukasi Kebidanan Completed", "👩‍⚕️", currentLevel.dialogAfter);
+                    }
+                }
+            }
+        }
+
+        function skillAction() {
+            if (gameState !== 'PLAYING') return;
+            const currentLevel = LEVEL_DATA[currentLevelIndex];
+
+            if (currentLevel.isBossLevel && patient) {
+                particles.push(new AttackParticle(player.x, player.y, patient.x, patient.y));
+                sfx.playAttack();
+
+                const dist = Math.hypot(patient.x - player.x, patient.y - player.y);
+                if (dist < 400) {
+                    patient.hp -= 25;
+                    updatePatientHpUI(patient.hp);
+
+                    if (patient.hp <= 0) {
+                        patient.hp = 0;
+                        sfx.playHeal();
+                        score += 300;
+                        document.getElementById('score-text').innerText = `Skor: ${score}`;
+                        showDialog("Bidan Senior", "Mitos Hancur!", "👩‍⚕️", currentLevel.dialogAfter);
+                    }
+                }
+            }
+        }
+
+        // --- DIALOG MODAL FLOW ---
+        function showDialog(speaker, role, avatar, text) {
+            gameState = 'DIALOG';
+            document.getElementById('dialog-speaker').innerText = speaker;
+            document.getElementById('dialog-role').innerText = role;
+            document.getElementById('dialog-avatar').innerText = avatar;
+            document.getElementById('dialog-text').innerHTML = text;
+            document.getElementById('dialog-modal').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-dialog-next').addEventListener('click', () => {
+            document.getElementById('dialog-modal').classList.add('hidden');
+
+            const currentLevel = LEVEL_DATA[currentLevelIndex];
+            // If level was complete (items delivered or boss defeated)
+            const isComplete = currentLevel.isBossLevel ? (patient && patient.hp <= 0) :
+                (currentLevel.neededItems && currentLevel.neededItems.every(i => player.inventory.includes(i)));
+
+            if (isComplete) {
+                if (currentLevelIndex < LEVEL_DATA.length - 1) {
+                    currentLevelIndex++;
+                    loadLevel(currentLevelIndex);
+                    gameState = 'PLAYING';
+                } else {
+                    // VICTORY!
+                    gameState = 'VICTORY';
+                    document.getElementById('certificate-modal').classList.remove('hidden');
+                }
+            } else {
+                gameState = 'PLAYING';
+            }
+        });
+
+        // --- UPDATE & RENDER ---
+        function update() {
+            if (gameState !== 'PLAYING') return;
+            player.update();
+
+            particles.forEach((p, index) => {
+                p.update();
+                if (p.life <= 0) particles.splice(index, 1);
+            });
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Camera Center on Player
+            const camX = player.x - canvas.width / 2;
+            const camY = player.y - canvas.height / 2;
+
+            // Draw Clinic Tile Floor Pattern
+            ctx.strokeStyle = '#fbcfe8';
+            ctx.lineWidth = 1;
+            const tileSize = 60;
+            const startX = Math.floor(camX / tileSize) * tileSize;
+            const startY = Math.floor(camY / tileSize) * tileSize;
+
+            for (let x = startX; x < startX + canvas.width + tileSize; x += tileSize) {
+                for (let y = startY; y < startY + canvas.height + tileSize; y += tileSize) {
+                    ctx.strokeRect(x - camX, y - camY, tileSize, tileSize);
+                }
+            }
+
+            // Draw Map Walls Border
+            ctx.strokeStyle = '#f472b6';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(50 - camX, 50 - camY, map.width - 100, map.height - 100);
+
+            // Draw Item Stations
+            itemStations.forEach(s => s.draw(camX, camY));
+
+            // Draw Patient NPC
+            if (patient) patient.draw(camX, camY);
+
+            // Draw Particles
+            particles.forEach(p => p.draw(camX, camY));
+
+            // Draw Player
+            player.draw(camX, camY);
+        }
+
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop();
+
+        // --- START & RESTART BUTTONS ---
+        document.getElementById('btn-start').addEventListener('click', () => {
+            sfx.init();
+            document.getElementById('start-modal').classList.add('hidden');
+            currentLevelIndex = 0;
+            score = 0;
+            loadLevel(currentLevelIndex);
+        });
+
+        document.getElementById('btn-restart-game').addEventListener('click', () => {
+            document.getElementById('certificate-modal').classList.add('hidden');
+            currentLevelIndex = 0;
+            score = 0;
+            loadLevel(currentLevelIndex);
+        });
+    </script>
+</body>
+</html>
